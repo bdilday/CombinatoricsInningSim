@@ -96,6 +96,31 @@ def seq_to_str(seq):
     return (''.join([str(e.value) for e in seq]) + '_' * (3 - len(seq)))[::-1]
 
 
+def variance_decompose_c(prob_df):
+    tmp = (prob_df
+    .loc[:, ["runs", "pseq_combo", "pn", "pcombo", "pcombo_n", "prob", "total_combinations"]]
+    .assign(z = lambda x: x.pseq_combo * x.runs, z2 = lambda x: x.pseq_combo * x.runs* x.runs)
+    .groupby("total_combinations")
+    .sum()
+    .assign(w = lambda x: x.z * x.prob, w2 = lambda x: x.z * x.z * x.prob, 
+    v =lambda x: x.z2 - x.z*x.z, ev=lambda x: x.prob*x.v)
+    .sum()
+    )
+    return {"ev": tmp.ev, "ve": tmp.w2-tmp.w*tmp.w}
+
+
+def variance_decompose(prob_df):
+    tmp = (prob_df
+    .loc[:, ["runs", "pn", "pcombo", "pcombo_n", "prob", "total_pa"]]
+    .assign(z = lambda x: x.pcombo_n * x.runs, z2 = lambda x: x.pcombo_n * x.runs* x.runs)
+    .groupby("total_pa")
+    .sum()
+    .assign(w = lambda x: x.z * x.prob, w2 = lambda x: x.z * x.z * x.prob, 
+    v =lambda x: x.z2 - x.z*x.z, ev=lambda x: x.prob*x.v)
+    .sum()
+    )
+    return {"ev": tmp.ev, "ve": tmp.w2-tmp.w*tmp.w}
+
 class StateEnumerator:
     def __init__(self, max_pa, number_events=5):
         if max_pa > 23:
