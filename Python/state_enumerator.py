@@ -12,6 +12,7 @@ from matplotlib import pyplot as plt
 
 from enum import Enum
 
+BASIC_WOBA_WEIGHTS = np.array((0.7, 0.9, 1.2, 1.5, 2.1))
 
 class Events(Enum):
     bb = 0
@@ -23,6 +24,8 @@ class Events(Enum):
 
 EventMap = {x.value: x for x in Events}
 
+def woba_from_tuple(event_tuple, woba_weights=BASIC_WOBA_WEIGHTS):
+    return sum(np.array(event_tuple) * BASIC_WOBA_WEIGHTS) / (sum(event_tuple) + 3)
 
 def evolve_state(base_state, ev):
     new_state = copy.deepcopy(base_state)
@@ -210,6 +213,16 @@ class StateEnumerator:
 
         x = se_df.runs + se_df.pa_start
         se_df = se_df.assign(runs=x)
+        woba_ = se_df.total_combinations.apply(lambda x: woba_from_tuple(x))
+        se_df = se_df.assign(woba = woba_)
+
+        int_columns = ["pa_start", "total_pa", "runs"]
+        float_columns = ["woba"]
+        for col in int_columns:
+            se_df.loc[:, col] = pd.to_numeric(se_df.loc[:, col])
+        for col in float_columns:
+            se_df.loc[:, col] = pd.to_numeric(se_df.loc[:, col])
+
         return se_df
 
     def _seq_runs_df(self, seq_len):
@@ -290,13 +303,22 @@ class StateEnumerator:
         )
 
         int_columns = ["pa_start", "multiplicity", "lob", "total_pa", "runs"]
-        float_columns = ["pn", "pcombo", "pcombo_n", "pseq_combo", "prob"]
+        float_columns = ["woba", "pn", "pcombo", "pcombo_n", "pseq_combo", "prob"]
         for col in int_columns:
             prob_df.loc[:, col] = pd.to_numeric(prob_df.loc[:, col])
         for col in float_columns:
             prob_df.loc[:, col] = pd.to_numeric(prob_df.loc[:, col])
 
         return prob_df
+
+    @staticmethod
+    def compute_runs(prob_df):
+        tmp = (prob_df
+        .filter(items=["total_pa", "runs", "prob"], axis=1)
+        .assign(z = lambda x: x.runs * x.prob, z2 = lambda x: x.runs * x.runs * x.prob)
+        .sum()
+        )
+        return {"runs_mean": tmp.z, "runs_var": tmp.z2 - tmp.z*tmp.z, "runs_sd": np.sqrt(tmp.z2 - tmp.z*tmp.z)}
 
 # runs given n
 # prob_df.drop("combinations", axis=1).assign(z=prob_df.runs*prob_df.pcombo_n, z2=prob_df.runs*prob_df.runs*prob_df.pcombo_n).groupby("total_pa").sum()#
