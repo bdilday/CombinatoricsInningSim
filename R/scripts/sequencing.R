@@ -53,7 +53,7 @@ get_data = function(year_min=2016, year_max=2016, group_inn=FALSE) {
            skx=i14+i20+i21+i22+i23)
 }
 
-conditional_dist_plot = function(seq_df, grouper_, ...) {
+conditional_dist_plot = function(seq_df, grouper_, ..., ncol_=3) {
   grouper = enquo(grouper_)
   groupers = enquos(...)
   
@@ -67,7 +67,7 @@ conditional_dist_plot = function(seq_df, grouper_, ...) {
     mutate(z=nr/n) %>%
     ggplot(aes(x=runs, y=z)) + 
     geom_bar(stat='identity', color='steelblue', fill='steelblue') + 
-    facet_wrap(vars(!!grouper), nrow=3, labeller = label_both) + 
+    facet_wrap(vars(!!grouper), ncol=ncol_, labeller = label_both) + 
     theme_minimal(base_size = 16) + 
     labs(x="Runs", y="Probability")
   
@@ -76,7 +76,6 @@ conditional_dist_plot = function(seq_df, grouper_, ...) {
 variance_decompose = function(seq_df, by_var_) {
   by_var = enquo(by_var_)
   var_df = seq_df %>% 
-    filter(pa>=3, pa<=14) %>% 
     group_by(!!by_var) %>% 
     summarise(m=mean(runs, na.rm=T), v=var(runs, na.rm=T), n=n()) %>% 
     ungroup() %>%
@@ -85,5 +84,5 @@ variance_decompose = function(seq_df, by_var_) {
   tmp = var_df %>% mutate(w=m*z, w2=m*m*z)
   ev = with(var_df, sum(n * v, na.rm=T) / sum(n, na.rm=T))
   ve = sum(tmp$w2, na.rm=T) - sum(tmp$w, na.rm=T)**2
-  list(ev=ev, ve=ve)
+  list(ev=ev, ve=ve, ev_rat = ev/(ev+ve), ve_rat=ve/(ve+ev))
 }
